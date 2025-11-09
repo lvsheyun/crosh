@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -53,6 +54,24 @@ type YAMLProxy struct {
 	Network        string `yaml:"network,omitempty"`
 	SkipCertVerify bool   `yaml:"skip-cert-verify,omitempty"`
 	UDP            bool   `yaml:"udp,omitempty"`
+}
+
+// LoadFromFile loads and parses a local YAML subscription file
+func LoadFromFile(filePath string) (*Subscription, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	nodes, err := parseYAMLSubscription(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse YAML file: %w", err)
+	}
+
+	return &Subscription{
+		URL:   filePath, // Store file path for reference
+		Nodes: nodes,
+	}, nil
 }
 
 // FetchSubscription fetches and parses a subscription URL

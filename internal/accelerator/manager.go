@@ -249,6 +249,11 @@ func (m *Manager) GetMirrorStatus() map[string]string {
 	return status
 }
 
+// LoadProxyFromFile loads proxy configuration from a local YAML file
+func (m *Manager) LoadProxyFromFile(filePath string) (*proxy.Subscription, error) {
+	return proxy.LoadFromFile(filePath)
+}
+
 // EnableProxy enables proxy via Xray
 func (m *Manager) EnableProxy() error {
 	if !m.config.Proxy.Enabled {

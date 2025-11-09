@@ -36,6 +36,12 @@ func main() {
 		return
 	}
 
+	// Check if argument is a local YAML file
+	if isYAMLFile(arg) {
+		handleLocalYAMLFile(manager, cfg, arg)
+		return
+	}
+
 	// Handle simple commands
 	switch arg {
 	case "on":
@@ -60,6 +66,18 @@ func isHTTPURL(s string) bool {
 	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 }
 
+// isYAMLFile checks if a string is a path to a YAML file
+func isYAMLFile(s string) bool {
+	if !strings.HasSuffix(s, ".yaml") && !strings.HasSuffix(s, ".yml") {
+		return false
+	}
+	// Check if file exists
+	if _, err := os.Stat(s); err == nil {
+		return true
+	}
+	return false
+}
+
 func printUsage() {
 	fmt.Println(`crosh - Network acceleration for Chinese developers
 
@@ -72,6 +90,7 @@ COMMANDS:
     off                 Disable acceleration
     status              Show current status
     <subscription-url>  Configure proxy subscription and auto-start
+    <config.yaml>       Use local YAML file (one-time configuration)
     version             Show version
     help                Show this help
 
@@ -85,6 +104,10 @@ EXAMPLES:
 
     # Configure proxy subscription (auto-starts proxy and mirrors)
     crosh https://your-subscription-url
+
+    # Use local YAML file (one-time use, not saved)
+    crosh config.yaml
+    crosh /path/to/proxies.yml
 
     # Check status
     crosh status
@@ -241,4 +264,82 @@ func handleConfigureProxy(manager *accelerator.Manager, cfg *config.Config, url 
 
 	fmt.Println("\n✓ Acceleration enabled")
 	fmt.Println("\nProxy is running in background.")
+}
+
+func handleLocalYAMLFile(manager *accelerator.Manager, cfg *config.Config, filePath string) {
+	fmt.Printf("Loading proxy configuration from local YAML file...\n\n")
+
+	// Clear subscription URL (one-time use, don't save file path)
+	cfg.Proxy.SubscriptionURL = ""
+
+	// Check if xray-core is installed
+	if _, err := os.Stat(cfg.Proxy.XrayPath); os.IsNotExist(err) {
+		fmt.Println("Xray-core not found. Downloading...")
+		xray := manager.GetXrayManager()
+		if err := xray.Download(); err != nil {
+			fmt.Fprintf(os.Stderr, "✗ Failed to download Xray-core: %v\n", err)
+			fmt.Println("\nPlease try again later.")
+			return
+		}
+		fmt.Println("✓ Xray-core downloaded successfully")
+	}
+
+	// Load nodes from local YAML file
+	fmt.Println("\nParsing YAML file...")
+	sub, err := manager.LoadProxyFromFile(filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "✗ Failed to load YAML file: %v\n", err)
+		fmt.Println("\nPlease check your YAML file format and try again.")
+		return
+	}
+
+	fmt.Printf("✓ Found %d nodes in YAML file\n", len(sub.Nodes))
+
+	// Select fastest node
+	fmt.Println("\nTesting node latency...")
+	node, err := sub.SelectFastestNode()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "✗ Failed to select node: %v\n", err)
+		return
+	}
+
+	fmt.Printf("✓ Selected node: %s (latency: %dms)\n", node.Name, node.Latency)
+
+	// Generate Xray config
+	xray := manager.GetXrayManager()
+	if err := xray.GenerateConfig(node); err != nil {
+		fmt.Fprintf(os.Stderr, "✗ Failed to generate Xray config: %v\n", err)
+		return
+	}
+
+	fmt.Println("\n✓ Proxy configured successfully (one-time use)")
+
+	// Automatically enable mirrors
+	fmt.Println("\nEnabling mirrors...")
+	cfg.Mirror.Enabled = true
+	if err := manager.EnableMirrors(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to enable mirrors: %v\n", err)
+	}
+
+	// Start Xray
+	fmt.Println("\nStarting proxy...")
+	if err := xray.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "✗ Failed to start proxy: %v\n", err)
+		return
+	}
+
+	cfg.Proxy.Enabled = true
+	cfg.Proxy.CurrentNode = node.Name
+	cfg.Save()
+
+	// Print proxy environment variables
+	fmt.Println("\n✓ Acceleration enabled")
+	fmt.Println("\nProxy is running in background.")
+	fmt.Println("\nTo use the proxy, set these environment variables:")
+	envVars := xray.GetProxyEnvVars()
+	for key, value := range envVars {
+		fmt.Printf("  export %s=%s\n", key, value)
+	}
+
+	fmt.Println("\nNote: This is a one-time configuration. To use this YAML file again, run: crosh " + filePath)
 }
