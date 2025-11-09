@@ -24,9 +24,9 @@ type XraySource struct {
 // Multiple download sources for Xray-core (for China network)
 var xraySources = []XraySource{
 	{
-		Name:        "jsDelivr CDN (crosh mirror)",
-		APIURL:      "https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/xray/VERSION",
-		DownloadURL: "https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/xray",
+		Name:        "Cloudflare CDN (crosh mirror)",
+		APIURL:      "https://crosh.boomyao.com/xray/VERSION",
+		DownloadURL: "https://crosh.boomyao.com/xray",
 	},
 	{
 		Name:        "Official GitHub",
@@ -126,7 +126,7 @@ func (x *XrayManager) Download() error {
 func (x *XrayManager) downloadGeoData() error {
 	dataDir := filepath.Dir(x.xrayPath)
 
-	// Geo data file sources (jsDelivr CDN first for best China access)
+	// Geo data file sources (Cloudflare CDN first for best China access)
 	geoFiles := []struct {
 		name     string
 		sources  []string
@@ -136,7 +136,7 @@ func (x *XrayManager) downloadGeoData() error {
 			name:     "geoip.dat",
 			filename: "geoip.dat",
 			sources: []string{
-				"https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/xray/geoip.dat",
+				"https://crosh.boomyao.com/xray/geoip.dat",
 				"https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat",
 				"https://gh.ddlc.top/https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat",
 				"https://ghps.cc/https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat",
@@ -147,7 +147,7 @@ func (x *XrayManager) downloadGeoData() error {
 			name:     "geosite.dat",
 			filename: "geosite.dat",
 			sources: []string{
-				"https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/xray/geosite.dat",
+				"https://crosh.boomyao.com/xray/geosite.dat",
 				"https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat",
 				"https://gh.ddlc.top/https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat",
 				"https://ghps.cc/https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat",
@@ -379,9 +379,9 @@ func getXrayPlatformNames() (osName, archName string) {
 func (x *XrayManager) getLatestReleaseInfo() (version, assetName string, err error) {
 	var lastErr error
 	for _, source := range xraySources {
-		// Special handling for jsDelivr source
-		if strings.Contains(source.Name, "jsDelivr") {
-			version, assetName, err = x.getVersionFromJsDelivr(source)
+		// Special handling for Cloudflare CDN source
+		if strings.Contains(source.Name, "Cloudflare") {
+			version, assetName, err = x.getVersionFromCDN(source)
 		} else {
 			version, assetName, err = x.getVersionFromGitHub(source)
 		}
@@ -395,8 +395,8 @@ func (x *XrayManager) getLatestReleaseInfo() (version, assetName string, err err
 	return "", "", lastErr
 }
 
-// getVersionFromJsDelivr fetches version info from jsDelivr CDN
-func (x *XrayManager) getVersionFromJsDelivr(source XraySource) (string, string, error) {
+// getVersionFromCDN fetches version info from Cloudflare CDN
+func (x *XrayManager) getVersionFromCDN(source XraySource) (string, string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	
 	resp, err := client.Get(source.APIURL)

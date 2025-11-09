@@ -97,18 +97,18 @@ jobs:
             ### Quick Install (Recommended for China users)
             
             ```bash
-            curl -fsSL https://cdn.jsdelivr.net/gh/boomyao/crosh@latest/scripts/install.sh | bash
+            curl -fsSL https://crosh.boomyao.com/scripts/install.sh | bash
             ```
             
-            ### Manual Download via jsDelivr CDN (Fast in China)
+            ### Manual Download via Cloudflare CDN (Fast in China)
             
-            - Linux AMD64: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/dist/crosh-linux-amd64`
-            - Linux ARM64: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/dist/crosh-linux-arm64`
-            - macOS AMD64: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/dist/crosh-darwin-amd64`
-            - macOS ARM64: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/dist/crosh-darwin-arm64`
-            - Windows AMD64: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/dist/crosh-windows-amd64.exe`
+            - Linux AMD64: `https://crosh.boomyao.com/dist/crosh-linux-amd64`
+            - Linux ARM64: `https://crosh.boomyao.com/dist/crosh-linux-arm64`
+            - macOS AMD64: `https://crosh.boomyao.com/dist/crosh-darwin-amd64`
+            - macOS ARM64: `https://crosh.boomyao.com/dist/crosh-darwin-arm64`
+            - Windows AMD64: `https://crosh.boomyao.com/dist/crosh-windows-amd64.exe`
             
-            ### Manual Download from GitHub Releases (Fallback)
+            ### Manual Download from GitHub Releases
             
             Download the appropriate binary for your platform from the assets below.
             
@@ -181,10 +181,10 @@ jobs:
           
           This branch is automatically maintained by GitHub Actions.
           
-          ## Access via jsDelivr CDN
+          ## Access via Cloudflare CDN
           
-          - crosh binaries: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/dist/`
-          - xray-core binaries: `https://cdn.jsdelivr.net/gh/boomyao/crosh@releases/xray/`
+          - crosh binaries: `https://crosh.boomyao.com/dist/`
+          - xray-core binaries: `https://crosh.boomyao.com/xray/`
           EOF
           
           # Commit and force push

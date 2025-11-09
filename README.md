@@ -13,6 +13,10 @@ A lightweight network acceleration tool for Chinese developers.
 ## Installation
 
 ```bash
+# Recommended for users in China (via Cloudflare CDN)
+curl -fsSL https://crosh.boomyao.com/scripts/install.sh | bash
+
+# Alternative (directly from GitHub)
 curl -fsSL https://raw.githubusercontent.com/boomyao/crosh/main/scripts/install.sh | bash
 ```
 

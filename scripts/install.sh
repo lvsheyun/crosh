@@ -1,6 +1,6 @@
 #!/bin/bash
 # crosh installer script
-# Usage: curl -fsSL https://cdn.jsdelivr.net/gh/boomyao/crosh@latest/scripts/install.sh | bash
+# Usage: curl -fsSL https://crosh.boomyao.com/scripts/install.sh | bash
 
 set -e
 
@@ -54,24 +54,17 @@ detect_platform() {
     echo -e "Detected platform: ${GREEN}${OS}/${ARCH}${NC}"
 }
 
-# Get latest version from jsDelivr
+# Get latest version from Cloudflare CDN
 get_latest_version() {
     if [ "$VERSION" != "latest" ]; then
         echo -e "Using specified version: ${GREEN}${VERSION}${NC}"
         return
     fi
 
-    # Try to get latest version from jsDelivr API
     echo "Fetching latest version..."
     
-    # Try jsDelivr API first
-    VERSION=$(curl -s "https://data.jsdelivr.com/v1/packages/gh/${REPO}" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | sed 's/"version":"//;s/"$//')
-    
-    # If jsDelivr API fails, try GitHub API as fallback
-    if [ -z "$VERSION" ]; then
-        echo "jsDelivr API unavailable, trying GitHub API..."
-        VERSION=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    fi
+    # Get version from Cloudflare Worker API
+    VERSION=$(curl -s "https://crosh.boomyao.com/api/version" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | sed 's/"version":"//;s/"$//')
     
     if [ -z "$VERSION" ]; then
         echo -e "${RED}Error: Failed to get latest version${NC}"
@@ -82,7 +75,7 @@ get_latest_version() {
     echo -e "Latest version: ${GREEN}${VERSION}${NC}"
 }
 
-# Download binary with fallback strategy
+# Download binary from Cloudflare CDN
 download_binary() {
     BINARY_FILE="${BINARY_NAME}-${OS}-${ARCH}"
     
@@ -91,35 +84,20 @@ download_binary() {
     fi
 
     TMP_FILE="/tmp/${BINARY_NAME}.tmp"
-    DOWNLOAD_SUCCESS=false
     
-    # Strategy 1: Try jsDelivr CDN (best for China)
-    JSDELIVR_URL="https://cdn.jsdelivr.net/gh/${REPO}@releases/dist/${BINARY_FILE}"
-    echo "Downloading from jsDelivr CDN..."
-    echo "URL: $JSDELIVR_URL"
+    # Download from Cloudflare Worker CDN
+    CDN_URL="https://crosh.boomyao.com/dist/${BINARY_FILE}"
+    echo "Downloading from Cloudflare CDN..."
+    echo "URL: $CDN_URL"
     
-    if curl -fsSL -o "$TMP_FILE" "$JSDELIVR_URL" 2>/dev/null; then
-        echo -e "${GREEN}✓${NC} Downloaded from jsDelivr CDN"
-        DOWNLOAD_SUCCESS=true
+    if curl -fsSL -o "$TMP_FILE" "$CDN_URL" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} Downloaded from Cloudflare CDN"
     else
-        echo -e "${YELLOW}jsDelivr CDN failed, trying GitHub Releases...${NC}"
-        
-        # Strategy 2: Fallback to GitHub Releases
-        GITHUB_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILE}"
-        echo "URL: $GITHUB_URL"
-        
-        if curl -fsSL -o "$TMP_FILE" "$GITHUB_URL" 2>/dev/null; then
-            echo -e "${GREEN}✓${NC} Downloaded from GitHub Releases"
-            DOWNLOAD_SUCCESS=true
-        fi
-    fi
-    
-    if [ "$DOWNLOAD_SUCCESS" = false ]; then
-        echo -e "${RED}Error: Failed to download binary from all sources${NC}"
+        echo -e "${RED}Error: Failed to download binary${NC}"
         echo ""
         echo "Please try manual installation:"
         echo "1. Download from: https://github.com/${REPO}/releases"
-        echo "2. Or use jsDelivr: https://cdn.jsdelivr.net/gh/${REPO}@releases/dist/${BINARY_FILE}"
+        echo "2. Or use CDN: https://crosh.boomyao.com/dist/${BINARY_FILE}"
         exit 1
     fi
 

@@ -20,6 +20,7 @@ go.work
 
 # Dependency directories
 vendor/
+node_modules/
 
 # IDE
 .idea/
@@ -42,4 +43,8 @@ xray-core*
 # Temporary files
 *.tmp
 *.bak
+
+# Cloudflare Workers
+.wrangler/
+.dev.vars
 
