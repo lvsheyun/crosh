@@ -9,7 +9,8 @@ import (
 	"github.com/boomyao/crosh/internal/config"
 )
 
-const version = "0.0.1"
+// version will be set by ldflags during build
+var version = "dev"
 
 func main() {
 	// Load config
@@ -51,7 +52,7 @@ func main() {
 	case "status":
 		handleStatus(manager, cfg)
 	case "version", "-v", "--version":
-		fmt.Printf("crosh version %s\n", version)
+		fmt.Printf("crosh version %s\n", strings.TrimSpace(version))
 	case "help", "-h", "--help":
 		printUsage()
 	default:
