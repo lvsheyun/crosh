@@ -6,11 +6,13 @@
  * - /api/version - Returns latest version from crosh GitHub API
  * - /dist/* - Serves crosh binaries from crosh Release Assets (boomyao/crosh)
  * - /xray/* - Serves Xray-core files from Xray Release Assets (XTLS/Xray-core)
+ *             Also serves geoip.dat and geosite.dat from Loyalsoldier/v2ray-rules-dat
  * - /scripts/* - Serves scripts from crosh main branch
  */
 
 const REPO = 'boomyao/crosh';
 const XRAY_REPO = 'XTLS/Xray-core';
+const GEO_REPO = 'Loyalsoldier/v2ray-rules-dat';
 const GITHUB_RAW = 'https://raw.githubusercontent.com';
 const GITHUB_API = 'https://api.github.com';
 
@@ -45,7 +47,10 @@ async function handleRequest(request) {
     // Route: /xray/* - Serve Xray-core files from GitHub Release Assets
     if (path.startsWith('/xray/')) {
       const filename = path.substring(6); // Remove '/xray/'
-      return await proxyReleaseAsset(filename, request, XRAY_REPO);
+      // geoip.dat and geosite.dat come from a different repository
+      const isGeoFile = filename === 'geoip.dat' || filename === 'geosite.dat';
+      const repo = isGeoFile ? GEO_REPO : XRAY_REPO;
+      return await proxyReleaseAsset(filename, request, repo);
     }
 
     // Route: /scripts/* - Serve scripts from main branch
