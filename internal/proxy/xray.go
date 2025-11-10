@@ -615,8 +615,7 @@ func (x *XrayManager) generateTrojanConfig(node *Node) map[string]interface{} {
 			"tlsSettings": map[string]interface{}{
 				"serverName":              sni,
 				"allowInsecure":           false,
-				"alpn":                    []string{"http/1.1"},
-				"fingerprint":             "chrome",
+				"alpn":                    []string{"h2", "http/1.1"},
 				"disableSystemRoot":       false,
 				"enableSessionResumption": true,
 			},
