@@ -75,6 +75,70 @@ get_latest_version() {
     echo -e "Latest version: ${GREEN}${VERSION}${NC}"
 }
 
+# Check for running crosh and xray processes
+check_running_processes() {
+    CROSH_RUNNING=0
+    XRAY_RUNNING=0
+    
+    # Check for running crosh processes
+    if pgrep -x "$BINARY_NAME" >/dev/null 2>&1; then
+        CROSH_RUNNING=1
+    fi
+    
+    # Check for running xray-core or xray processes
+    if pgrep -x "xray" >/dev/null 2>&1 || pgrep -x "xray-core" >/dev/null 2>&1; then
+        XRAY_RUNNING=1
+    fi
+    
+    # Return 1 if any processes are running
+    if [ $CROSH_RUNNING -eq 1 ] || [ $XRAY_RUNNING -eq 1 ]; then
+        return 1
+    fi
+    return 0
+}
+
+# Stop running crosh and xray processes
+stop_running_processes() {
+    echo -e "${YELLOW}Detected running processes, stopping them...${NC}"
+    
+    STOPPED_SOMETHING=0
+    
+    # Stop xray processes first (gracefully)
+    if pgrep -x "xray" >/dev/null 2>&1 || pgrep -x "xray-core" >/dev/null 2>&1; then
+        pkill -TERM "xray" 2>/dev/null || true
+        pkill -TERM "xray-core" 2>/dev/null || true
+        sleep 1
+        
+        # Force kill if still running
+        if pgrep -x "xray" >/dev/null 2>&1 || pgrep -x "xray-core" >/dev/null 2>&1; then
+            pkill -KILL "xray" 2>/dev/null || true
+            pkill -KILL "xray-core" 2>/dev/null || true
+            sleep 0.5
+        fi
+        
+        echo -e "${GREEN}✓${NC} Stopped xray-core proxy"
+        STOPPED_SOMETHING=1
+    fi
+    
+    # Stop crosh processes
+    if pgrep -x "$BINARY_NAME" >/dev/null 2>&1; then
+        pkill -TERM "$BINARY_NAME" 2>/dev/null || true
+        sleep 1
+        
+        # Force kill if still running
+        if pgrep -x "$BINARY_NAME" >/dev/null 2>&1; then
+            pkill -KILL "$BINARY_NAME" 2>/dev/null || true
+            sleep 0.5
+        fi
+        
+        echo -e "${GREEN}✓${NC} Stopped crosh processes"
+        STOPPED_SOMETHING=1
+    fi
+    
+    echo ""
+    return $STOPPED_SOMETHING
+}
+
 # Download binary from Cloudflare CDN
 download_binary() {
     BINARY_FILE="${BINARY_NAME}-${OS}-${ARCH}"
@@ -145,6 +209,14 @@ print_instructions() {
     echo ""
     echo -e "${GREEN}Installation complete!${NC}"
     echo ""
+    
+    # If processes were stopped, inform user
+    if [ "${SERVICES_WERE_STOPPED:-0}" -eq 1 ]; then
+        echo -e "${YELLOW}Note: Previous crosh services were stopped during upgrade.${NC}"
+        echo "To re-enable acceleration, run: crosh on"
+        echo ""
+    fi
+    
     echo "Quick start:"
     echo "  1. Test connectivity:    crosh test"
     echo "  2. Auto-configure:       crosh auto"
@@ -163,6 +235,18 @@ print_instructions() {
 # Main installation flow
 main() {
     detect_platform
+    
+    # Check and stop running processes before downloading
+    SERVICES_WERE_STOPPED=0
+    if ! check_running_processes; then
+        if stop_running_processes; then
+            SERVICES_WERE_STOPPED=1
+        fi
+    fi
+    
+    # Export so it's available in print_instructions
+    export SERVICES_WERE_STOPPED
+    
     download_binary
     install_binary
     
