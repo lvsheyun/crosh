@@ -51,7 +51,7 @@ async function handleRequest(request) {
     // Route: /scripts/* - Serve scripts from main branch
     if (path.startsWith('/scripts/')) {
       const filename = path.substring(9); // Remove '/scripts/'
-      return await proxyGitHubFile('main', `scripts/${filename}`, 'text/plain', CACHE_DURATIONS.script);
+      return await proxyGitHubFile('main', `scripts/${filename}`, 'text/plain', CACHE_DURATIONS.script, request);
     }
 
     // Root path - show usage
@@ -74,17 +74,45 @@ async function handleRequest(request) {
 }
 
 /**
+ * Check if cache should be bypassed based on request
+ * @param {Request} request - The incoming request
+ * @returns {boolean} - True if cache should be bypassed
+ */
+function shouldBypassCache(request) {
+  const url = new URL(request.url);
+  
+  // Check for nocache query parameter
+  if (url.searchParams.has('nocache') || url.searchParams.has('refresh')) {
+    return true;
+  }
+  
+  // Check for Cache-Control: no-cache header
+  const cacheControl = request.headers.get('Cache-Control');
+  if (cacheControl && (cacheControl.includes('no-cache') || cacheControl.includes('no-store'))) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Handle version API request
  * Returns the latest version tag from GitHub
  */
 async function handleVersionAPI(request) {
+  const bypassCache = shouldBypassCache(request);
   const cacheKey = new Request(request.url, request);
   const cache = caches.default;
 
-  // Try to get from cache
-  let response = await cache.match(cacheKey);
-  if (response) {
-    return response;
+  // Try to get from cache (unless bypassing)
+  if (!bypassCache) {
+    let response = await cache.match(cacheKey);
+    if (response) {
+      // Add header to indicate cache hit
+      response = new Response(response.body, response);
+      response.headers.set('X-Cache-Status', 'HIT');
+      return response;
+    }
   }
 
   // Fetch from GitHub API
@@ -108,10 +136,11 @@ async function handleVersionAPI(request) {
       'Content-Type': 'application/json',
       'Cache-Control': `public, max-age=${CACHE_DURATIONS.version}`,
       'Access-Control-Allow-Origin': '*',
+      'X-Cache-Status': bypassCache ? 'BYPASS' : 'MISS',
     },
   });
 
-  // Store in cache
+  // Store in cache (even when bypassing, update the cache)
   await cache.put(cacheKey, response.clone());
   return response;
 }
@@ -126,13 +155,19 @@ async function handleVersionAPI(request) {
  * @param {string} repo - GitHub repository in format 'owner/repo'
  */
 async function proxyReleaseAsset(filename, request, repo) {
+  const bypassCache = shouldBypassCache(request);
   const cacheKey = new Request(request.url, request);
   const cache = caches.default;
 
-  // Try to get from cache
-  let response = await cache.match(cacheKey);
-  if (response) {
-    return response;
+  // Try to get from cache (unless bypassing)
+  if (!bypassCache) {
+    let response = await cache.match(cacheKey);
+    if (response) {
+      // Add header to indicate cache hit
+      response = new Response(response.body, response);
+      response.headers.set('X-Cache-Status', 'HIT');
+      return response;
+    }
   }
 
   // Parse filename to check if it contains version
@@ -175,10 +210,11 @@ async function proxyReleaseAsset(filename, request, repo) {
       'Cache-Control': `public, max-age=${CACHE_DURATIONS.binary}`,
       'Access-Control-Allow-Origin': '*',
       'Content-Disposition': `attachment; filename="${actualFilename}"`,
+      'X-Cache-Status': bypassCache ? 'BYPASS' : 'MISS',
     },
   });
 
-  // Store in cache
+  // Store in cache (even when bypassing, update the cache)
   await cache.put(cacheKey, response.clone());
   return response;
 }
@@ -189,8 +225,11 @@ async function proxyReleaseAsset(filename, request, repo) {
  * @param {string} filePath - File path within the repository
  * @param {string} contentType - MIME type for the response
  * @param {number} cacheDuration - Cache duration in seconds
+ * @param {Request} request - Original request for cache bypass check
  */
-async function proxyGitHubFile(branch, filePath, contentType, cacheDuration) {
+async function proxyGitHubFile(branch, filePath, contentType, cacheDuration, request = null) {
+  const bypassCache = request ? shouldBypassCache(request) : false;
+  
   // Construct GitHub raw URL
   const githubUrl = `${GITHUB_RAW}/${REPO}/${branch}/${filePath}`;
   
@@ -198,13 +237,16 @@ async function proxyGitHubFile(branch, filePath, contentType, cacheDuration) {
   const cacheKey = new Request(githubUrl);
   const cache = caches.default;
 
-  // Try to get from cache
-  let response = await cache.match(cacheKey);
-  if (response) {
-    // Add CORS headers to cached response
-    response = new Response(response.body, response);
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    return response;
+  // Try to get from cache (unless bypassing)
+  if (!bypassCache) {
+    let response = await cache.match(cacheKey);
+    if (response) {
+      // Add CORS headers to cached response
+      response = new Response(response.body, response);
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('X-Cache-Status', 'HIT');
+      return response;
+    }
   }
 
   // Fetch from GitHub
@@ -225,10 +267,11 @@ async function proxyGitHubFile(branch, filePath, contentType, cacheDuration) {
       'Cache-Control': `public, max-age=${cacheDuration}`,
       'Access-Control-Allow-Origin': '*',
       'Content-Disposition': `inline; filename="${filePath.split('/').pop()}"`,
+      'X-Cache-Status': bypassCache ? 'BYPASS' : 'MISS',
     },
   });
 
-  // Store in cache
+  // Store in cache (even when bypassing, update the cache)
   await cache.put(cacheKey, response.clone());
   return response;
 }
@@ -303,6 +346,14 @@ function getUsageHTML() {
     <strong>GET /scripts/{script}</strong><br>
     Download installation scripts (e.g., <code>install.sh</code>)
   </div>
+
+  <h2>Cache Bypass</h2>
+  <p>To bypass cache and force fetch the latest version, add <code>?nocache=1</code> or <code>?refresh=1</code> to any URL:</p>
+  <pre># Force refresh version info
+curl https://crosh.boomyao.com/api/version?nocache=1
+
+# Force download latest binary
+curl https://crosh.boomyao.com/dist/crosh-linux-amd64?nocache=1</pre>
 
   <h2>Examples</h2>
   <pre># Get latest version

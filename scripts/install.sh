@@ -63,8 +63,8 @@ get_latest_version() {
 
     echo "Fetching latest version..."
     
-    # Get version from Cloudflare Worker API
-    VERSION=$(curl -s "https://crosh.boomyao.com/api/version" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | sed 's/"version":"//;s/"$//')
+    # Get version from Cloudflare Worker API (with cache bypass to ensure fresh version)
+    VERSION=$(curl -s "https://crosh.boomyao.com/api/version?nocache=1" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | sed 's/"version":"//;s/"$//')
     
     if [ -z "$VERSION" ]; then
         echo -e "${RED}Error: Failed to get latest version${NC}"
@@ -149,8 +149,8 @@ download_binary() {
 
     TMP_FILE="/tmp/${BINARY_NAME}.tmp"
     
-    # Download from Cloudflare Worker CDN
-    CDN_URL="https://crosh.boomyao.com/dist/${BINARY_FILE}"
+    # Download from Cloudflare Worker CDN (with cache bypass to ensure fresh binary)
+    CDN_URL="https://crosh.boomyao.com/dist/${BINARY_FILE}?nocache=1"
     echo "Downloading from Cloudflare CDN..."
     echo "URL: $CDN_URL"
     
